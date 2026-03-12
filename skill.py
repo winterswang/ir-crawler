@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IR Crawler Skill - 上市公司IR网页爬取工具
+IR Crawler Skill - 上市公司IR网页爬取工具 V1.1
 
 用法:
     python skill.py <公司名/股票代码/IR网址> [--max-files N]
@@ -19,15 +19,25 @@ from crawler.search import search_ir_url
 from crawler.analyzer import analyze_page, sort_by_priority
 from crawler.downloader import download_files
 from crawler.manifest import generate_manifest
+from crawler.company_db import get_all_companies
 
 
 def print_banner():
     """打印横幅"""
     print("""
 ╔═══════════════════════════════════════════╗
-║       IR Crawler v1.0 - IR文件爬取工具     ║
+║     IR Crawler v1.1 - IR文件爬取工具       ║
 ╚═══════════════════════════════════════════╝
 """)
+
+
+def list_companies():
+    """列出预设公司"""
+    print("📚 预设公司列表:\n")
+    companies = get_all_companies()
+    for c in companies:
+        print(f"  {c['name']} ({c['market']})")
+    print(f"\n共 {len(companies)} 家公司")
 
 
 async def crawl_ir(company: str, max_files: int = None) -> dict:
@@ -42,6 +52,7 @@ async def crawl_ir(company: str, max_files: int = None) -> dict:
         {
             "success": bool,
             "company": str,
+            "company_name": str,
             "ir_url": str,
             "files_found": int,
             "files_downloaded": int,
@@ -58,20 +69,29 @@ async def crawl_ir(company: str, max_files: int = None) -> dict:
 
         ir_info = search_ir_url(company)
         ir_url = ir_info["ir_url"]
-        company_name = ir_info.get("company_name", company)
+        company_name_input = ir_info.get("company_name", company)
 
-        print(f"🏢 公司: {company_name}")
         print(f"🔗 IR网址: {ir_url}")
         print(f"📍 来源: {ir_info['source']}")
         print("-" * 40)
 
-        # 2. 分析网页
-        files = await analyze_page(ir_url)
+        # 2. 分析网页 (同时提取公司名称)
+        files, page_company_name = await analyze_page(ir_url)
+        
+        # 优先使用数据库的公司名（更准确），其次页面提取
+        if ir_info["source"] == "database":
+            company_name = ir_info.get("company_name", company)
+        elif page_company_name != "Unknown":
+            company_name = page_company_name
+        else:
+            company_name = company
 
+        # 3. 下载文件
         if not files:
             return {
                 "success": False,
                 "company": company,
+                "company_name": company_name,
                 "ir_url": ir_url,
                 "files_found": 0,
                 "files_downloaded": 0,
@@ -84,7 +104,6 @@ async def crawl_ir(company: str, max_files: int = None) -> dict:
         for t, c in sorted(type_counts.items(), key=lambda x: -x[1]):
             print(f"   {t}: {c} 文件")
 
-        # 3. 下载文件
         results = await download_files(files, company_name, max_files=max_files)
 
         # 4. 生成清单
@@ -100,6 +119,7 @@ async def crawl_ir(company: str, max_files: int = None) -> dict:
 
         print("\n" + "=" * 40)
         print("✅ 爬取完成!")
+        print(f"   公司名称: {company_name}")
         print(f"   发现文件: {len(files)}")
         print(f"   下载成功: {success_count}")
         print(f"   清单路径: {manifest_path}")
@@ -107,7 +127,8 @@ async def crawl_ir(company: str, max_files: int = None) -> dict:
 
         return {
             "success": True,
-            "company": company_name,
+            "company": company,
+            "company_name": company_name,
             "ir_url": ir_url,
             "files_found": len(files),
             "files_downloaded": success_count,
@@ -132,11 +153,20 @@ def main():
     load_dotenv()
 
     parser = argparse.ArgumentParser(description="IR Crawler - IR文件爬取工具")
-    parser.add_argument("company", help="公司名称/股票代码/IR网址")
+    parser.add_argument("company", nargs="?", help="公司名称/股票代码/IR网址")
     parser.add_argument("--max-files", "-m", type=int, default=None, help="最大下载文件数")
     parser.add_argument("--json", "-j", action="store_true", help="输出JSON格式")
+    parser.add_argument("--list", "-l", action="store_true", help="列出预设公司")
 
     args = parser.parse_args()
+
+    if args.list:
+        list_companies()
+        return 0
+
+    if not args.company:
+        parser.print_help()
+        return 1
 
     # 运行爬取
     result = asyncio.run(crawl_ir(args.company, args.max_files))

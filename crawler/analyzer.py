@@ -1,5 +1,6 @@
 """
 网页分析模块 - 使用 Playwright 分析 IR 网页，提取文件链接
+V1.1 优化: 公司名称提取、文件名优化
 """
 
 import re
@@ -11,10 +12,19 @@ from urllib.parse import urljoin, urlparse
 
 
 @dataclass
+class PageInfo:
+    """页面信息"""
+    title: str
+    company_name: str
+    files: list
+
+
+@dataclass
 class FileInfo:
     """文件信息"""
     url: str
     filename: str
+    display_name: str  # 用于显示的名称
     file_type: str  # annual, quarterly, presentation, transcript, other
     extension: str
     size: Optional[int] = None
@@ -30,6 +40,8 @@ FILE_PATTERNS = {
         r"10-K",
         r"年度报告",
         r"annual\s*report",
+        r"financial\s*year",
+        r"fiscal\s*year",
     ],
     "quarterly": [
         r"quarterly",
@@ -38,6 +50,7 @@ FILE_PATTERNS = {
         r"quarterly\s*report",
         r"季度报告",
         r"earnings\s*release",
+        r"interim\s*report",
     ],
     "presentation": [
         r"investor\s*presentation",
@@ -46,12 +59,14 @@ FILE_PATTERNS = {
         r"路演",
         r"presentation",
         r"slides?",
+        r"investor\s*briefing",
     ],
     "transcript": [
         r"transcript",
         r"电话会议",
         r"earnings\s*call",
         r"会议纪要",
+        r"call\s*transcript",
     ],
     "announcement": [
         r"announcement",
@@ -59,12 +74,14 @@ FILE_PATTERNS = {
         r"notice",
         r"新闻稿",
         r"press\s*release",
+        r"news",
     ],
     "esg": [
         r"esg",
         r"sustainability",
         r"社会责任",
         r"可持续发展",
+        r"csr\s*report",
     ]
 }
 
@@ -98,21 +115,90 @@ def extract_filename(url: str) -> str:
     return filename
 
 
-async def analyze_page(url: str, max_scrolls: int = 5) -> list[FileInfo]:
+def generate_display_name(url: str, link_text: str, filename: str) -> str:
     """
-    分析 IR 网页，提取文件链接
+    生成用于显示的文件名
+    
+    优先使用链接文字，其次使用文件名
+    """
+    link_text = link_text.strip() if link_text else ""
+    
+    # 如果链接文字有意义（长度适中，不是纯数字/hash）
+    if link_text and 3 < len(link_text) < 100:
+        # 检查是否像有意义的标题
+        if not re.match(r'^[a-f0-9]{20,}$', link_text):  # 不是纯hash
+            # 清理链接文字
+            display = re.sub(r'\s+', '_', link_text)
+            display = re.sub(r'[<>:"/\\|?*]', '', display)
+            # 添加扩展名
+            ext = Path(url).suffix
+            if ext and not display.lower().endswith(ext.lower()):
+                display = f"{display}{ext}"
+            return display
+    
+    # 使用原始文件名
+    return filename
 
+
+def extract_company_name(page_title: str, url: str) -> str:
+    """
+    从页面标题提取公司名称
+    
+    常见格式:
+    - "Apple Inc. - Investor Relations"
+    - "Tencent Holdings Limited - Investors"
+    - "Investor Relations | Microsoft"
+    """
+    if not page_title:
+        return "Unknown"
+    
+    # 移除常见后缀
+    title = page_title
+    suffixes = [
+        r"\s*[-|]\s*Investor\s*Relations.*",
+        r"\s*[-|]\s*Investors.*",
+        r"\s*[-|]\s*IR.*",
+        r"\s*[-|]\s*Investment\s*Relations.*",
+        r"\s*·\s*投资者关系.*",
+    ]
+    
+    for suffix in suffixes:
+        title = re.sub(suffix, "", title, flags=re.IGNORECASE)
+    
+    # 清理
+    title = title.strip()
+    
+    # 如果标题太长或太短，可能不是公司名
+    if len(title) < 2 or len(title) > 100:
+        # 尝试从 URL 提取
+        domain = urlparse(url).netloc
+        # 移除 www. 和常见前缀
+        domain = re.sub(r'^(www\.|ir\.|investor\.)', '', domain)
+        # 提取主域名
+        parts = domain.split('.')
+        if parts:
+            return parts[0].capitalize()
+        return "Unknown"
+    
+    return title
+
+
+async def analyze_page(url: str, max_scrolls: int = 5) -> tuple[list[FileInfo], str]:
+    """
+    分析 IR 网页，提取文件链接和公司名称
+    
     Args:
         url: IR 网页 URL
         max_scrolls: 最大滚动次数
-
+        
     Returns:
-        文件信息列表
+        (文件信息列表, 公司名称)
     """
     from playwright.async_api import async_playwright
 
     files = []
     seen_urls = set()
+    company_name = "Unknown"
 
     print(f"🌐 正在分析: {url}")
 
@@ -127,6 +213,11 @@ async def analyze_page(url: str, max_scrolls: int = 5) -> list[FileInfo]:
             # 加载页面
             await page.goto(url, wait_until="networkidle", timeout=60000)
             await asyncio.sleep(2)  # 等待动态内容
+
+            # 提取页面标题和公司名称
+            page_title = await page.title()
+            company_name = extract_company_name(page_title, url)
+            print(f"🏢 公司名称: {company_name}")
 
             # 滚动加载更多内容
             for i in range(max_scrolls):
@@ -146,7 +237,7 @@ async def analyze_page(url: str, max_scrolls: int = 5) -> list[FileInfo]:
 
             for link in links:
                 href = link.get("href", "")
-                title = link.get("title", "")
+                link_text = link.get("title", "")
 
                 # 检查是否是文件链接
                 parsed = urlparse(href)
@@ -158,15 +249,19 @@ async def analyze_page(url: str, max_scrolls: int = 5) -> list[FileInfo]:
                     seen_urls.add(href)
 
                     # 分类文件
-                    file_type = classify_file(href, title)
+                    file_type = classify_file(href, link_text)
                     filename = link.get("download") or extract_filename(href)
+                    
+                    # 生成显示名称
+                    display_name = generate_display_name(href, link_text, filename)
 
                     files.append(FileInfo(
                         url=href,
                         filename=filename,
+                        display_name=display_name,
                         file_type=file_type,
                         extension=ext,
-                        title=title
+                        title=link_text
                     ))
 
             print(f"✅ 识别到 {len(files)} 个文件")
@@ -176,7 +271,7 @@ async def analyze_page(url: str, max_scrolls: int = 5) -> list[FileInfo]:
         finally:
             await browser.close()
 
-    return files
+    return files, company_name
 
 
 def group_by_type(files: list[FileInfo]) -> dict[str, list[FileInfo]]:
@@ -206,8 +301,9 @@ def sort_by_priority(files: list[FileInfo]) -> list[FileInfo]:
 if __name__ == "__main__":
     # 测试
     async def test():
-        files = await analyze_page("https://www.tencent.com/en-us/investors.html")
+        files, company = await analyze_page("https://investor.apple.com")
+        print(f"\n公司: {company}")
         for f in sort_by_priority(files)[:10]:
-            print(f"[{f.file_type}] {f.filename} -> {f.url[:60]}...")
+            print(f"[{f.file_type}] {f.display_name} -> {f.url[:60]}...")
 
     asyncio.run(test())

@@ -1,5 +1,6 @@
 """
 文件下载模块 - 异步下载 IR 文件
+V1.1 优化: 添加重试机制
 """
 
 import asyncio
@@ -54,9 +55,10 @@ async def download_file(
     session: aiohttp.ClientSession,
     file_info: FileInfo,
     company: str,
-    timeout: int = 120
+    timeout: int = 120,
+    max_retries: int = 3
 ) -> DownloadResult:
-    """下载单个文件"""
+    """下载单个文件（支持重试）"""
     save_path = get_save_path(company, file_info)
 
     # 如果文件已存在，跳过
@@ -70,55 +72,63 @@ async def download_file(
             size=size
         )
 
-    try:
-        async with session.get(
-            file_info.url,
-            timeout=aiohttp.ClientTimeout(total=timeout),
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            }
-        ) as response:
-            if response.status == 200:
-                content = await response.read()
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            if attempt > 0:
+                print(f"🔄 重试 {attempt}/{max_retries}: {file_info.filename}")
+                await asyncio.sleep(2)  # 重试前等待
 
-                # 保存文件
-                with open(save_path, "wb") as f:
-                    f.write(content)
+            async with session.get(
+                file_info.url,
+                timeout=aiohttp.ClientTimeout(total=timeout),
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                }
+            ) as response:
+                if response.status == 200:
+                    content = await response.read()
 
-                size = len(content)
-                print(f"✅ 下载成功: {file_info.filename} ({size / 1024:.1f} KB)")
+                    # 保存文件
+                    with open(save_path, "wb") as f:
+                        f.write(content)
 
-                return DownloadResult(
-                    file_info=file_info,
-                    success=True,
-                    local_path=str(save_path),
-                    size=size
-                )
-            else:
-                error = f"HTTP {response.status}"
-                print(f"❌ 下载失败: {file_info.filename} - {error}")
-                return DownloadResult(
-                    file_info=file_info,
-                    success=False,
-                    error=error
-                )
+                    size = len(content)
+                    print(f"✅ 下载成功: {file_info.filename} ({size / 1024:.1f} KB)")
 
-    except asyncio.TimeoutError:
-        error = "Timeout"
-        print(f"⏰ 超时: {file_info.filename}")
-        return DownloadResult(
-            file_info=file_info,
-            success=False,
-            error=error
-        )
-    except Exception as e:
-        error = str(e)
-        print(f"❌ 下载失败: {file_info.filename} - {error}")
-        return DownloadResult(
-            file_info=file_info,
-            success=False,
-            error=error
-        )
+                    return DownloadResult(
+                        file_info=file_info,
+                        success=True,
+                        local_path=str(save_path),
+                        size=size
+                    )
+                else:
+                    last_error = f"HTTP {response.status}"
+                    continue  # 重试
+
+        except asyncio.TimeoutError:
+            last_error = "Timeout"
+            print(f"⏰ 超时: {file_info.filename} (尝试 {attempt + 1})")
+            continue  # 重试
+            
+        except (aiohttp.ClientError, ConnectionError) as e:
+            last_error = str(e)
+            print(f"⚠️ 连接错误: {file_info.filename} - {e}")
+            continue  # 重试
+            
+        except Exception as e:
+            last_error = str(e)
+            print(f"❌ 下载失败: {file_info.filename} - {e}")
+            break  # 其他错误不重试
+
+    # 所有重试都失败
+    print(f"❌ 下载失败: {file_info.filename} - {last_error}")
+    return DownloadResult(
+        file_info=file_info,
+        success=False,
+        error=last_error
+    )
 
 
 async def download_files(
@@ -175,9 +185,9 @@ if __name__ == "__main__":
     async def test():
         from .analyzer import analyze_page
 
-        files = await analyze_page("https://www.tencent.com/en-us/investors.html")
+        files, _ = await analyze_page("https://investor.apple.com")
         if files:
-            results = await download_files(files[:3], "腾讯控股")
+            results = await download_files(files[:3], "Apple")
             for r in results:
                 print(f"{'✅' if r.success else '❌'} {r.file_info.filename}")
 
