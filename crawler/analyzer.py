@@ -224,6 +224,34 @@ async def analyze_page(url: str, max_scrolls: int = 5, timeout: int = 90000, bro
             # 加载页面 (增加超时时间)
             await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
             await asyncio.sleep(3)  # 等待动态内容
+            
+            # 额外等待JavaScript渲染
+            await page.wait_for_load_state("load", timeout=30000)
+            
+            # 滚动加载更多内容
+            for i in range(max_scrolls):
+                await page.evaluate("window.scrollBy(0, window.innerHeight)")
+                await asyncio.sleep(1)
+            
+            # 检查是否有"加载更多"按钮并点击
+            try:
+                load_more_selectors = [
+                    'button:has-text("Load")',
+                    'button:has-text("More")',
+                    'a:has-text("Load")',
+                    '[class*="load-more"]',
+                    '[class*="show-more"]',
+                ]
+                for selector in load_more_selectors:
+                    try:
+                        btn = await page.query_selector(selector)
+                        if btn:
+                            await btn.click()
+                            await asyncio.sleep(2)
+                    except:
+                        pass
+            except:
+                pass
 
             # 提取页面标题和公司名称
             page_title = await page.title()

@@ -13,13 +13,13 @@ COMPANY_IR_DATABASE = {
     },
     "阿里巴巴": {
         "names": ["阿里巴巴", "阿里", "Alibaba", "BABA", "09988", "09988.HK"],
-        "ir_url": "https://investor.alibabagroup.com",
+        "ir_url": "https://www.alibabagroup.com/en/ir/earnings",
         "company_name": "Alibaba Group Holding Limited",
         "market": "US/HK"
     },
     "美团": {
         "names": ["美团", "Meituan", "03690", "03690.HK"],
-        "ir_url": "https://ir.meituan.com",
+        "ir_url": "https://ir.meituan.com/zh/financial-reports",
         "company_name": "Meituan",
         "market": "HK"
     },
@@ -129,7 +129,7 @@ COMPANY_IR_DATABASE = {
     },
     "Meta": {
         "names": ["Meta", "Facebook", "FB", "META"],
-        "ir_url": "https://investor.fb.com/",
+        "ir_url": "https://investors.meta.com/financial-information/quarterly-results/",
         "company_name": "Meta Platforms, Inc.",
         "market": "US"
     },
