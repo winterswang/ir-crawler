@@ -143,7 +143,7 @@ COMPANY_IR_DATABASE = {
     # A股
     "贵州茅台": {
         "names": ["茅台", "贵州茅台", "600519"],
-        "ir_url": "https://www.moutai.com.cn/ir/",
+        "ir_url": "https://www.moutai.com.cn/ir/index.shtml",
         "company_name": "贵州茅台酒股份有限公司",
         "market": "CN"
     },
