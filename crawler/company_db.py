@@ -129,7 +129,7 @@ COMPANY_IR_DATABASE = {
     },
     "Meta": {
         "names": ["Meta", "Facebook", "FB", "META"],
-        "ir_url": "https://investor.meta.com",
+        "ir_url": "https://investor.fb.com/",
         "company_name": "Meta Platforms, Inc.",
         "market": "US"
     },
@@ -149,7 +149,7 @@ COMPANY_IR_DATABASE = {
     },
     "中国平安": {
         "names": ["平安", "中国平安", "601318"],
-        "ir_url": "https://group.pingan.com/investor-en",
+        "ir_url": "https://www.pingan.cn/ir/index.shtml",
         "company_name": "Ping An Insurance",
         "market": "CN/HK"
     },
