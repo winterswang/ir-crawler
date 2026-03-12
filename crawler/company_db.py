@@ -66,6 +66,30 @@ COMPANY_IR_DATABASE = {
         "market": "US"
     },
     
+    # 瑞幸咖啡
+    "瑞幸咖啡": {
+        "names": ["瑞幸咖啡", "瑞幸", "Luckin Coffee", "LKNCY"],
+        "ir_url": "https://investor.luckincoffee.com",
+        "company_name": "Luckin Coffee Inc.",
+        "market": "US"
+    },
+    
+    # 迈瑞医疗
+    "迈瑞医疗": {
+        "names": ["迈瑞医疗", "迈瑞", "Mindray", "300760"],
+        "ir_url": "https://www.mindray.com/cn/investor.html",
+        "company_name": "深圳迈瑞生物医疗电子股份有限公司",
+        "market": "CN"
+    },
+    
+    # 任天堂
+    "任天堂": {
+        "names": ["任天堂", "Nintendo", "7974", "NTDOY"],
+        "ir_url": "https://www.nintendo.co.jp/ir/en/",
+        "company_name": "Nintendo Co., Ltd.",
+        "market": "JP"
+    },
+    
     # 美股
     "苹果": {
         "names": ["苹果", "Apple", "AAPL"],

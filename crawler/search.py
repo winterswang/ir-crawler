@@ -113,9 +113,9 @@ def search_ir_url(company: str, use_cache: bool = True) -> dict:
     # 构建优化的搜索查询
     # 尝试多种搜索策略
     search_queries = [
-        f"{query} investor relations official site:*.com",
-        f"{query} IR investor site:*.com",
-        f"{query} investor relations financial reports",
+        f"{query} investor relations official",
+        f"{query} IR investor financial reports",
+        f"site:{query}.com investor" if not query.isdigit() else f"{query} investor relations",
     ]
     
     print(f"🔍 搜索: {query}")
@@ -136,6 +136,15 @@ def search_ir_url(company: str, use_cache: bool = True) -> dict:
             for result in response.get("results", []):
                 url = result.get("url", "")
                 title = result.get("title", "").lower()
+                
+                # 排除聚合网站和不相关页面
+                exclude_domains = ["alphaspread", "simplywall", "tipranks", "macrotrends", "stockanalysis"]
+                if any(domain in url.lower() for domain in exclude_domains):
+                    continue
+                
+                # 排除直接返回文件链接
+                if any(ext in url.lower() for ext in [".pdf", ".xlsx", ".doc"]):
+                    continue
 
                 # 识别 IR 相关页面
                 ir_keywords = ["investor", "ir.", "/ir/", "investors", "投资关系", "financial"]

@@ -10,5 +10,23 @@
     "company_name": "AAPL Investor Relations",
     "market": "unknown",
     "last_updated": "2026-03-12"
+  },
+  "瑞幸咖啡": {
+    "ir_url": "https://investor.luckincoffee.com/",
+    "company_name": "Investor Relations",
+    "market": "unknown",
+    "last_updated": "2026-03-12"
+  },
+  "迈瑞医疗": {
+    "ir_url": "https://www.mindray.com/content/dam/xpace/zh/investor-relations/financialinformation/2021/mindray-2021-esg-report-cn.pdf",
+    "company_name": "[PDF] 可持续发展报告",
+    "market": "unknown",
+    "last_updated": "2026-03-12"
+  },
+  "任天堂": {
+    "ir_url": "https://www.alphaspread.com/security/tse/7974/investor-relations",
+    "company_name": "Nintendo Co Ltd Investor Relations",
+    "market": "unknown",
+    "last_updated": "2026-03-12"
   }
 }
