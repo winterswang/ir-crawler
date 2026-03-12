@@ -1,0 +1,14 @@
+{
+  "腾讯控股": {
+    "ir_url": "https://www.tencent.com/en-us/investors.html",
+    "company_name": "Investors",
+    "market": "unknown",
+    "last_updated": "2026-03-12"
+  },
+  "AAPL": {
+    "ir_url": "https://www.alphaspread.com/security/nasdaq/aapl/investor-relations",
+    "company_name": "AAPL Investor Relations",
+    "market": "unknown",
+    "last_updated": "2026-03-12"
+  }
+}
