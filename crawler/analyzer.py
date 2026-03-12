@@ -183,7 +183,7 @@ def extract_company_name(page_title: str, url: str) -> str:
     return title
 
 
-async def analyze_page(url: str, max_scrolls: int = 5, timeout: int = 90000) -> tuple[list[FileInfo], str]:
+async def analyze_page(url: str, max_scrolls: int = 5, timeout: int = 90000, browser_type: str = "firefox") -> tuple[list[FileInfo], str]:
     """
     分析 IR 网页，提取文件链接和公司名称
     
@@ -191,6 +191,7 @@ async def analyze_page(url: str, max_scrolls: int = 5, timeout: int = 90000) -> 
         url: IR 网页 URL
         max_scrolls: 最大滚动次数
         timeout: 页面加载超时时间(毫秒)，默认90秒
+        browser_type: 浏览器类型 ("firefox" 或 "chromium")
         
     Returns:
         (文件信息列表, 公司名称)
@@ -204,21 +205,18 @@ async def analyze_page(url: str, max_scrolls: int = 5, timeout: int = 90000) -> 
     print(f"🌐 正在分析: {url}")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=[
-                '--disable-blink-features=AutomationControlled',
-            ]
-        )
+        # 使用Firefox (解决Chromium HTTP2问题)
+        if browser_type == "firefox":
+            browser = await p.firefox.launch(headless=True)
+        else:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=['--disable-blink-features=AutomationControlled']
+            )
+        
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
             ignore_https_errors=True,
-            extra_http_headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Cache-Control": "no-cache",
-            }
         )
         page = await context.new_page()
 
