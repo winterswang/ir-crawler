@@ -129,7 +129,7 @@ COMPANY_IR_DATABASE = {
     },
     "Meta": {
         "names": ["Meta", "Facebook", "FB", "META"],
-        "ir_url": "https://investor.fb.com",
+        "ir_url": "https://investor.meta.com",
         "company_name": "Meta Platforms, Inc.",
         "market": "US"
     },
@@ -143,7 +143,7 @@ COMPANY_IR_DATABASE = {
     # A股
     "贵州茅台": {
         "names": ["茅台", "贵州茅台", "600519"],
-        "ir_url": "https://www.moutaichina.com/investor",
+        "ir_url": "https://www.moutai.com.cn/ir/",
         "company_name": "贵州茅台酒股份有限公司",
         "market": "CN"
     },
