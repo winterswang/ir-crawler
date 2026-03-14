@@ -30,9 +30,13 @@ DOWNLOAD_DIR = Path(__file__).parent.parent / "downloads"
 
 
 def get_save_path(company: str, file_info: FileInfo) -> Path:
-    """获取文件保存路径"""
+    """获取文件保存路径（使用规范化文件名）"""
+    from .analyzer import normalize_filename
+    
     # 清理公司名称
     safe_company = "".join(c for c in company if c.isalnum() or c in (' ', '-', '_')).strip()
+    if not safe_company:
+        safe_company = "Unknown"
 
     # 按类型分目录
     type_dir = {
@@ -48,7 +52,15 @@ def get_save_path(company: str, file_info: FileInfo) -> Path:
     save_dir = DOWNLOAD_DIR / safe_company / type_dir
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    return save_dir / file_info.filename
+    # 使用规范化文件名
+    normalized_filename = normalize_filename(
+        file_info.filename,
+        company,
+        file_info.file_type,
+        file_info.title or ""
+    )
+
+    return save_dir / normalized_filename
 
 
 async def download_file(

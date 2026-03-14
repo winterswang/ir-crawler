@@ -115,6 +115,76 @@ def extract_filename(url: str) -> str:
     return filename
 
 
+def normalize_filename(
+    original_filename: str, 
+    company: str, 
+    file_type: str,
+    link_text: str = ""
+) -> str:
+    """
+    规范化文件名
+    
+    格式: {COMPANY}_{TYPE}_{YEAR}.{EXT}
+    
+    示例:
+    - _10-K-2022-(As-Filed).pdf → AAPL_10-K_2022.pdf
+    - annual-report-2023.pdf → Tencent_Annual_2023.pdf
+    """
+    from datetime import datetime
+    
+    # 获取扩展名
+    ext = Path(original_filename).suffix.lower()
+    if not ext:
+        ext = ".pdf"  # 默认 PDF
+    
+    # 提取年份（限制在合理范围内：1990-当前年份+1）
+    current_year = datetime.now().year
+    min_year = 1990
+    max_year = current_year + 1
+    
+    combined_text = original_filename + " " + link_text
+    year_matches = re.findall(r'(20[0-9]{2}|19[0-9]{2})', combined_text)
+    
+    year = ""
+    for y in year_matches:
+        y_int = int(y)
+        if min_year <= y_int <= max_year:
+            year = y
+            break
+    
+    # 提取文件类型标识
+    type_identifiers = {
+        "annual": ["10-K", "20-F", "Annual", "年报", "AR"],
+        "quarterly": ["10-Q", "Quarterly", "季报", "QR", "Q1", "Q2", "Q3", "Q4"],
+        "presentation": ["Presentation", "Deck", "演示", "Slides"],
+        "transcript": ["Transcript", "纪要", "Call"],
+        "esg": ["ESG", "Sustainability", "CSR", "社会责任"],
+    }
+    
+    type_id = ""
+    identifiers = type_identifiers.get(file_type, [])
+    for identifier in identifiers:
+        if re.search(re.escape(identifier), combined_text, re.IGNORECASE):
+            type_id = identifier
+            break
+    
+    if not type_id:
+        type_id = file_type.capitalize()
+    
+    # 清理公司名（移除特殊字符）
+    safe_company = re.sub(r'[^a-zA-Z0-9]', '', company)
+    if not safe_company:
+        safe_company = "Unknown"
+    
+    # 构建文件名
+    if year:
+        filename = f"{safe_company}_{type_id}_{year}{ext}"
+    else:
+        filename = f"{safe_company}_{type_id}{ext}"
+    
+    return filename
+
+
 def generate_display_name(url: str, link_text: str, filename: str) -> str:
     """
     生成用于显示的文件名
@@ -140,47 +210,83 @@ def generate_display_name(url: str, link_text: str, filename: str) -> str:
     return filename
 
 
-def extract_company_name(page_title: str, url: str) -> str:
+def extract_company_name(page_title: str, url: str, page_content: str = "") -> str:
     """
-    从页面标题提取公司名称
+    从页面标题/URL/内容提取公司名称
+    
+    优先级:
+    1. 页面标题（清理后）
+    2. URL 域名
+    3. 页面内容关键词
     
     常见格式:
     - "Apple Inc. - Investor Relations"
     - "Tencent Holdings Limited - Investors"
     - "Investor Relations | Microsoft"
     """
-    if not page_title:
-        return "Unknown"
     
-    # 移除常见后缀
-    title = page_title
-    suffixes = [
-        r"\s*[-|]\s*Investor\s*Relations.*",
-        r"\s*[-|]\s*Investors.*",
-        r"\s*[-|]\s*IR.*",
-        r"\s*[-|]\s*Investment\s*Relations.*",
-        r"\s*·\s*投资者关系.*",
+    # 方法1：从页面标题提取
+    if page_title:
+        # 移除常见后缀
+        title = page_title
+        suffixes = [
+            r"\s*[-|]\s*Investor\s*Relations.*",
+            r"\s*[-|]\s*Investors.*",
+            r"\s*[-|]\s*IR.*",
+            r"\s*[-|]\s*Investment\s*Relations.*",
+            r"\s*·\s*投资者关系.*",
+            r"\s*-\s*Investor.*",
+            r"\s*\|\s*Investor.*",
+        ]
+        
+        for suffix in suffixes:
+            title = re.sub(suffix, "", title, flags=re.IGNORECASE)
+        
+        # 清理
+        title = title.strip()
+        
+        # 如果标题合理长度，返回
+        if 2 <= len(title) <= 100:
+            # 过滤掉一些明显不是公司名的标题
+            if not re.match(r'^(Investor|IR|Investment|Relation|Home|Welcome)', title, re.IGNORECASE):
+                return title
+    
+    # 方法2：从 URL 域名提取（增强版）
+    domain = urlparse(url).netloc.lower()
+    
+    # 常见域名模式提取公司名
+    domain_patterns = [
+        r'investor\.([a-z0-9-]+)\.com',      # investor.apple.com → Apple
+        r'ir\.([a-z0-9-]+)\.com',             # ir.microsoft.com → Microsoft
+        r'([a-z0-9-]+)\.com/investor',        # apple.com/investor → Apple
+        r'www\.([a-z0-9-]+)\.com',            # www.apple.com → Apple
+        r'([a-z0-9-]+)\.com',                 # apple.com → Apple
+        r'([a-z0-9-]+)\.[a-z]{2,}$',          # apple.co.uk → Apple
     ]
     
-    for suffix in suffixes:
-        title = re.sub(suffix, "", title, flags=re.IGNORECASE)
+    for pattern in domain_patterns:
+        match = re.search(pattern, domain)
+        if match:
+            company = match.group(1)
+            # 过滤通用词
+            generic_words = ['www', 'ir', 'investor', 'invest', 'corp', 'inc', 'ltd', 'co']
+            if company not in generic_words:
+                # 首字母大写
+                return company.capitalize()
     
-    # 清理
-    title = title.strip()
+    # 方法3：从页面内容提取（备用）
+    if page_content:
+        # 查找公司名模式
+        content_patterns = [
+            r'([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)\s+(?:Inc\.?|Corp\.?|Ltd\.?|Limited)',
+            r'©\s*(\d{4}\s+)?([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)',
+        ]
+        for pattern in content_patterns:
+            match = re.search(pattern, page_content[:5000])  # 只搜索前5000字符
+            if match:
+                return match.group(-1).strip()
     
-    # 如果标题太长或太短，可能不是公司名
-    if len(title) < 2 or len(title) > 100:
-        # 尝试从 URL 提取
-        domain = urlparse(url).netloc
-        # 移除 www. 和常见前缀
-        domain = re.sub(r'^(www\.|ir\.|investor\.)', '', domain)
-        # 提取主域名
-        parts = domain.split('.')
-        if parts:
-            return parts[0].capitalize()
-        return "Unknown"
-    
-    return title
+    return "Unknown"
 
 
 async def analyze_page(url: str, max_scrolls: int = 5, timeout: int = 90000, browser_type: str = "firefox") -> tuple[list[FileInfo], str]:

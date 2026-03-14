@@ -143,20 +143,20 @@ COMPANY_IR_DATABASE = {
     # A股
     "贵州茅台": {
         "names": ["茅台", "贵州茅台", "600519"],
-        "ir_url": "https://www.moutai.com.cn/ir/index.shtml",
+        "ir_url": "https://www.moutaichina.com/front/investor_relations/",
         "company_name": "贵州茅台酒股份有限公司",
         "market": "CN"
     },
     "中国平安": {
-        "names": ["平安", "中国平安", "601318"],
-        "ir_url": "https://www.pingan.cn/ir/index.shtml",
-        "company_name": "Ping An Insurance",
+        "names": ["平安", "中国平安", "Ping An", "601318"],
+        "ir_url": "https://www.pingan.com/app_ir/index.shtml",
+        "company_name": "中国平安保险（集团）股份有限公司",
         "market": "CN/HK"
     },
     "招商银行": {
-        "names": ["招行", "招商银行", "600036"],
-        "ir_url": "https://www.cmbchina.com/investor",
-        "company_name": "China Merchants Bank",
+        "names": ["招行", "招商银行", "CMB", "600036"],
+        "ir_url": "https://www.cmbchina.com/investor/",
+        "company_name": "招商银行股份有限公司",
         "market": "CN/HK"
     },
 }
